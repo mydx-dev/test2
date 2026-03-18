@@ -8,7 +8,7 @@ on:
     workflow_dispatch:
         inputs:
             project_name:
-                description: "Project name"
+                description: "Project name (leave empty to use repository name)"
                 required: false
                 default: ""
             envs:
@@ -26,15 +26,18 @@ on:
             create_new:
                 description: "Create new GAS project"
                 required: false
-                default: "false"
+                type: boolean
+                default: false
             use_frontend:
                 description: "Use frontend setup"
                 required: false
-                default: "false"
+                type: boolean
+                default: false
             skip_git:
                 description: "Skip git init"
                 required: false
-                default: "true"
+                type: boolean
+                default: true
 
 jobs:
     init:
@@ -50,14 +53,14 @@ jobs:
                 contains(github.event.comment.body, '/init') &&
                 contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
             )
-        uses: mydx-dev/gas-boost/.github/workflows/init.yml@v1
+        uses: mydx-dev/common-workflow/.github/workflows/init.yml@v1
         with:
             project_name: >-
                 ${{ inputs.project_name || github.event.repository.name }}
             envs: ${{ inputs.envs || 'dev,prd' }}
             default_env: ${{ inputs.default_env || 'dev' }}
             project_type: ${{ inputs.project_type || 'standalone' }}
-            create_new: ${{ inputs.create_new || 'false' }}
-            use_frontend: ${{ inputs.use_frontend || 'false' }}
-            skip_git: ${{ inputs.skip_git || 'true' }}
+            create_new: ${{ inputs.create_new || false }}
+            use_frontend: ${{ inputs.use_frontend || false }}
+            skip_git: ${{ inputs.skip_git || true }}
         secrets: inherit
