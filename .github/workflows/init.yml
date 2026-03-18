@@ -1,0 +1,63 @@
+name: Init Project
+
+on:
+    issue_comment:
+        types: [created]
+    issues:
+        types: [labeled]
+    workflow_dispatch:
+        inputs:
+            project_name:
+                description: "Project name"
+                required: false
+                default: ""
+            envs:
+                description: "Comma separated envs"
+                required: false
+                default: "dev,prd"
+            default_env:
+                description: "Default env"
+                required: false
+                default: "dev"
+            project_type:
+                description: "Project type"
+                required: false
+                default: "standalone"
+            create_new:
+                description: "Create new GAS project"
+                required: false
+                default: "false"
+            use_frontend:
+                description: "Use frontend setup"
+                required: false
+                default: "false"
+            skip_git:
+                description: "Skip git init"
+                required: false
+                default: "true"
+
+jobs:
+    init:
+        if: >-
+            github.event_name == 'workflow_dispatch' ||
+            (
+                github.event_name == 'issues' &&
+                github.event.label.name == 'init' &&
+                contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+            ) ||
+            (
+                github.event_name == 'issue_comment' &&
+                contains(github.event.comment.body, '/init') &&
+                contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+            )
+        uses: mydx-dev/gas-boost/.github/workflows/init.yml@v1
+        with:
+            project_name: >-
+                ${{ inputs.project_name || github.event.repository.name }}
+            envs: ${{ inputs.envs || 'dev,prd' }}
+            default_env: ${{ inputs.default_env || 'dev' }}
+            project_type: ${{ inputs.project_type || 'standalone' }}
+            create_new: ${{ inputs.create_new || 'false' }}
+            use_frontend: ${{ inputs.use_frontend || 'false' }}
+            skip_git: ${{ inputs.skip_git || 'true' }}
+        secrets: inherit
