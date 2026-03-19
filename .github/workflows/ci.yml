@@ -3,10 +3,11 @@ name: CI
 on:
     pull_request:
         types: [opened, synchronize, reopened]
+    workflow_dispatch:
 
 jobs:
     ci:
         if: >-
-            contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+            contains(fromJson('["OWNER","MEMBER","COLLABORATOR","BOT"]'), github.event.pull_request.author_association)
         uses: mydx-dev/common-workflow/.github/workflows/ci.yml@v1
         secrets: inherit
