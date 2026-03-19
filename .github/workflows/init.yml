@@ -1,16 +1,16 @@
 name: Init Project
 
 on:
-    workflow_call:
+    workflow_dispatch:
         inputs:
             project_name:
-                description: "Project name"
-                required: true
-                type: string
+                description: "Project name (leave empty to use repository name)"
+                required: false
+                default: ""
             project_type:
                 description: "Project type"
-                required: true
-                type: string
+                required: false
+                default: "standalone"
             create_dev_project:
                 description: "Create dev GAS project"
                 required: false
@@ -32,116 +32,15 @@ on:
                 type: boolean
                 default: true
 
-permissions:
-    contents: write
-    pull-requests: write
-    packages: read
-    actions: write
-
-env:
-    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
     init:
-        if: ${{ contains(fromJSON('["mydx-dev","taiga-automate-growth"]'), github.repository_owner) }}
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  token: ${{ secrets.GAS_BOOST_PAT }}
-
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: "24"
-
-            - name: Enable pnpm
-              run: |
-                  corepack enable
-                  corepack prepare pnpm@9.12.3 --activate
-                  pnpm --version
-
-            - name: Configure npm auth
-              run: |
-                  echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" > .npmrc
-                  echo "@mydx-dev:registry=https://npm.pkg.github.com" >> .npmrc
-              env:
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-            - name: Configure clasp credentials
-              run: |
-                  printf '%s' "$CLASP_CREDENTIALS" > ~/.clasprc.json
-                  chmod 600 ~/.clasprc.json
-              env:
-                  CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
-
-            - name: Initialize project
-              run: |
-                  ARGS="--here --yes"
-                  if [ "${{ inputs.create_dev_project }}" = "true" ]; then ARGS="$ARGS --create-dev"; fi
-                  if [ "${{ inputs.create_prd_project }}" = "true" ]; then ARGS="$ARGS --create-prd"; fi
-                  if [ "${{ inputs.use_frontend }}" = "true" ]; then ARGS="$ARGS --use-frontend"; fi
-                  if [ "${{ inputs.skip_git }}" = "true" ]; then ARGS="$ARGS --skip-git"; fi
-                  pnpm dlx @mydx-dev/gas-boost-cli@latest init "$NPM_TOKEN" \
-                      $ARGS \
-                      --name "${{ inputs.project_name }}" \
-                      --project-type "${{ inputs.project_type }}"
-              env:
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-            - name: Sync secrets (if scriptId exists)
-              run: |
-                  set -e
-                                    ENVS="dev prd"
-                                    for ENV in ${ENVS} ; do
-                    FILE="config/.clasp.${ENV}.json"
-                    if [ ! -f "$FILE" ]; then
-                      echo "Skip $ENV: $FILE not found"
-                      continue
-                    fi
-                    node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('$FILE','utf8'));if(!j.scriptId){process.exit(2)}" \
-                      && pnpm dlx @mydx-dev/gas-boost-cli@latest secrets sync "$ENV" \
-                           --gh-env "$ENV" \
-                      || echo "Skip $ENV: scriptId not found"
-                  done
-              env:
-                  GH_TOKEN: ${{ secrets.GAS_BOOST_PAT }}
-
-            - name: Commit and push changes
-              run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                  git checkout -B automation/init
-                  git add -A
-                  if git diff --cached --quiet; then
-                      echo "No changes to commit"
-                      exit 0
-                  fi
-                  git commit -m "chore: initialize gas-boost project"
-                  git push --force "https://x-access-token:${{ secrets.GAS_BOOST_PAT }}@github.com/${{ github.repository }}" HEAD:automation/init
-
-            - name: Create pull request
-              uses: actions/github-script@v7
-              with:
-                  script: |
-                      const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-                      const head = `${owner}:automation/init`;
-                      const base = context.payload.repository?.default_branch || 'main';
-                      const existing = await github.rest.pulls.list({
-                          owner,
-                          repo,
-                          head,
-                          base,
-                          state: 'open',
-                      });
-                      if (existing.data.length > 0) {
-                          core.info(`PR already exists: ${existing.data[0].html_url}`);
-                          return;
-                      }
-                      await github.rest.pulls.create({
-                          owner,
-                          repo,
-                          head,
-                          base,
-                          title: 'chore: initialize gas-boost project',
-                          body: 'Automated project initialization.',
-                      });
+        uses: mydx-dev/common-workflow/.github/workflows/init.yml@v1
+        with:
+            project_name: >-
+                ${{ inputs.project_name || github.event.repository.name }}
+            project_type: ${{ inputs.project_type || 'standalone' }}
+            create_dev_project: ${{ inputs.create_dev_project || false }}
+            create_prd_project: ${{ inputs.create_prd_project || false }}
+            use_frontend: ${{ inputs.use_frontend || false }}
+            skip_git: ${{ inputs.skip_git || true }}
+        secrets: inherit
