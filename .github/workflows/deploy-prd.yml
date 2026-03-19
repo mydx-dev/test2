@@ -3,11 +3,23 @@ name: Deploy Prd
 on:
     push:
         branches: [main]
+    workflow_dispatch:
 
 jobs:
-    deploy:
+    deploy_dispatch:
         if: >-
-            contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.sender.author_association)
+            github.event_name == 'workflow_dispatch' &&
+            github.actor == github.repository_owner
+        uses: mydx-dev/common-workflow/.github/workflows/deploy.yml@v1
+        with:
+            environment: prd
+            clasp_json_secret: CLASP_JSON_PRD
+            comment: true
+        secrets: inherit
+    deploy_push:
+        if: >-
+            github.event_name == 'push' &&
+            github.actor == github.repository_owner
         uses: mydx-dev/common-workflow/.github/workflows/deploy.yml@v1
         with:
             environment: prd
