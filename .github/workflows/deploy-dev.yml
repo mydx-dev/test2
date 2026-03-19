@@ -1,0 +1,19 @@
+name: Deploy Dev
+
+on:
+    workflow_run:
+        workflows: ["CI"]
+        types: [completed]
+
+jobs:
+    deploy:
+        if: >-
+            github.event.workflow_run.conclusion == 'success' &&
+            contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.workflow_run.actor.author_association)
+        uses: mydx-dev/common-workflow/.github/workflows/deploy.yml@v1
+        with:
+            environment: dev
+            clasp_json_secret: CLASP_JSON_DEV
+            ref: ${{ github.event.workflow_run.head_sha }}
+            comment: true
+        secrets: inherit
